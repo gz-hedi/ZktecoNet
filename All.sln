@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30114.105
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "H3x.Zkteco", "src\H3x.Zkteco\H3x.Zkteco.csproj", "{0F565086-6129-4627-8103-305EF8041953}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{0F565086-6129-4627-8103-305EF8041953}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0F565086-6129-4627-8103-305EF8041953}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0F565086-6129-4627-8103-305EF8041953}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0F565086-6129-4627-8103-305EF8041953}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {0DC101EC-47D1-4174-9A9C-7F998E43D236}
+	EndGlobalSection
+EndGlobal
