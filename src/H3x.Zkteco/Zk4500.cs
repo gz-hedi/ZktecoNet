@@ -2,6 +2,9 @@
 using LibUsbDotNet.Main;
 using System;
 using System.Dynamic;
+using System.Threading;
+using System.Threading.Tasks;
+using Ultz.Dispatcher;
 
 namespace H3x.Zkteco
 {
@@ -13,92 +16,298 @@ namespace H3x.Zkteco
 
         private readonly IUsbDevice _usbDevice;
 
-        private Zk4500(IUsbDevice usbDevice)
+        private readonly Dispatcher _dispatcher;
+
+        private readonly UsbContext _context;
+
+        private Zk4500(Dispatcher dispatcher, UsbContext context, IUsbDevice usbDevice)
         {
             _usbDevice = usbDevice;
+            _dispatcher = dispatcher;
+            _context = context;
         }
+
+        #region Create device, lowlevel USB helper functions
 
         public static Zk4500 CreateAndOpenDevice()
         {
-            using (var context = new UsbContext())
+            var dispatcher = new Dispatcher();
+
+            return dispatcher.Invoke(() =>
             {
-                // use the predicate based Find method, as using a UsbDeviceFinder does not work for me
-                // tested on Windows 10 18363, using lib version 3.0.81-alpha
-                var usbDevice = context.Find(e =>
-                {
-                    if (e.VendorId == USB_VID && e.ProductId == USB_PID)
-                        return true;
-                    else
-                        return false;
-                });
+                return CreateAndOpenDeviceInternal(dispatcher);
+            });
+        }
 
-                // open
-                usbDevice.Open();
+        public static async Task<Zk4500> CreateAndOpenDeviceAsync()
+        {
+            var dispatcher = new Dispatcher();
 
-                // configure
-                usbDevice.SetConfiguration(1);
-                if (!usbDevice.ClaimInterface(0))
-                    throw new UsbException("Could not claim USB interface 0");
+            return await dispatcher.InvokeAsync(() =>
+            {
+                return CreateAndOpenDeviceInternal(dispatcher);
+            });
+        }
 
-                return new Zk4500(usbDevice);
-            }
+        private static Zk4500 CreateAndOpenDeviceInternal(Dispatcher dispatcher)
+        {
+            // use the predicate based Find method, as using a UsbDeviceFinder does not work for me
+            // tested on Windows 10 18363, using lib version 3.0.81-alpha
+            var usbContext = new UsbContext();
+            var usbDevice = usbContext.Find(d =>
+            {
+                var isZk4500 = d.VendorId == USB_VID && d.ProductId == USB_PID;
+                return isZk4500;
+            });
+
+            // open
+            usbDevice.Open();
+
+            // configure
+            usbDevice.SetConfiguration(1);
+            if (!usbDevice.ClaimInterface(0))
+                throw new UsbException("Could not claim USB interface 0");
+
+            return new Zk4500(dispatcher, usbContext, usbDevice);
+        }
+
+        private void ControlTransferInternal(byte bRequest, int wValue, int wIndex)
+        {
+            var setupPkt = new UsbSetupPacket(0x40, bRequest, wValue, wIndex, 0);
+            var retVal = _usbDevice.ControlTransfer(setupPkt, Array.Empty<byte>(), 0, 0);
+            if (retVal != 0)
+                throw new UsbException($"ControlTransfer returned non zero value {retVal}");
+        }
+
+        #endregion
+
+        #region LEDs, buzzer
+
+        public async Task ResetDeviceAsync()
+        {
+            if (disposing)
+                throw new ObjectDisposedException(GetType().FullName);
+
+            await _dispatcher.InvokeAsync(() =>
+            {
+                _usbDevice.ResetDevice();
+            });
         }
 
         public void SetGreenLedOn()
         {
-            var setupPkt = new UsbSetupPacket(0x40, 225, 1, 0, 0);
-            var retVal = _usbDevice.ControlTransfer(setupPkt, Array.Empty<byte>(), 0, 0);
-            if (retVal != 0)
-                throw new UsbException($"ControlTransfer returned non zero value {retVal}");
+            if (disposing)
+                throw new ObjectDisposedException(GetType().FullName);
+
+            _dispatcher.Invoke(() =>
+            {
+                ControlTransferInternal(225, 1, 0);
+            });
+        }
+
+        public async Task SetGreenLedOnAsync()
+        {
+            if (disposing)
+                throw new ObjectDisposedException(GetType().FullName);
+
+            await _dispatcher.InvokeAsync(() =>
+            {
+                ControlTransferInternal(225, 1, 0);
+            });
         }
 
         public void SetGreenLedOff()
         {
-            var setupPkt = new UsbSetupPacket(0x40, 225, 0, 0, 0);
-            var retVal = _usbDevice.ControlTransfer(setupPkt, Array.Empty<byte>(), 0, 0);
-            if (retVal != 0)
-                throw new UsbException($"ControlTransfer returned non zero value {retVal}");
+            if (disposing)
+                throw new ObjectDisposedException(GetType().FullName);
+
+            _dispatcher.Invoke(() =>
+            {
+                ControlTransferInternal(225, 0, 0);
+            });
+        }
+
+        public async Task SetGreenLedOffAsync()
+        {
+            if (disposing)
+                throw new ObjectDisposedException(GetType().FullName);
+
+            await _dispatcher.InvokeAsync(() =>
+            {
+                ControlTransferInternal(225, 0, 0);
+            });
         }
 
         public void SetRedLedOn()
         {
-            var setupPkt = new UsbSetupPacket(0x40, 225, 1, 1, 0);
-            var retVal = _usbDevice.ControlTransfer(setupPkt, Array.Empty<byte>(), 0, 0);
-            if (retVal != 0)
-                throw new UsbException($"ControlTransfer returned non zero value {retVal}");
+            if (disposing)
+                throw new ObjectDisposedException(GetType().FullName);
+
+            _dispatcher.Invoke(() =>
+            {
+                ControlTransferInternal(225, 1, 1);
+            });
+        }
+
+        public async Task SetRedLedOnAsync()
+        {
+            if (disposing)
+                throw new ObjectDisposedException(GetType().FullName);
+
+            await _dispatcher.InvokeAsync(() =>
+            {
+                ControlTransferInternal(225, 1, 1);
+            });
         }
 
         public void SetRedLedOff()
         {
-            var setupPkt = new UsbSetupPacket(0x40, 225, 0, 1, 0);
-            var retVal = _usbDevice.ControlTransfer(setupPkt, Array.Empty<byte>(), 0, 0);
-            if (retVal != 0)
-                throw new UsbException($"ControlTransfer returned non zero value {retVal}");
+            if (disposing)
+                throw new ObjectDisposedException(GetType().FullName);
+
+            _dispatcher.Invoke(() =>
+            {
+                ControlTransferInternal(225, 0, 1);
+            });
+        }
+
+        public async Task SetRedLedOffAsync()
+        {
+            if (disposing)
+                throw new ObjectDisposedException(GetType().FullName);
+
+            await _dispatcher.InvokeAsync(() =>
+            {
+                ControlTransferInternal(225, 0, 1);
+            });
         }
 
         public void SetBuzzerOn()
         {
-            var setupPkt = new UsbSetupPacket(0x40, 225, 1, 2, 0);
-            var retVal = _usbDevice.ControlTransfer(setupPkt, Array.Empty<byte>(), 0, 0);
-            if (retVal != 0)
-                throw new UsbException($"ControlTransfer returned non zero value {retVal}");
+            if (disposing)
+                throw new ObjectDisposedException(GetType().FullName);
+
+            _dispatcher.Invoke(() =>
+            {
+                ControlTransferInternal(225, 1, 2);
+            });
+        }
+
+        public async Task SetBuzzerOnAsync()
+        {
+            if (disposing)
+                throw new ObjectDisposedException(GetType().FullName);
+
+            await _dispatcher.InvokeAsync(() =>
+            {
+                ControlTransferInternal(225, 1, 2);
+            });
         }
 
         public void SetBuzzerOff()
         {
-            var setupPkt = new UsbSetupPacket(0x40, 225, 0, 2, 0);
-            var retVal = _usbDevice.ControlTransfer(setupPkt, Array.Empty<byte>(), 0, 0);
-            if (retVal != 0)
-                throw new UsbException($"ControlTransfer returned non zero value {retVal}");
+            if (disposing)
+                throw new ObjectDisposedException(GetType().FullName);
+
+            _dispatcher.Invoke(() =>
+            {
+                ControlTransferInternal(225, 0, 2);
+            });
+        }
+
+        public async Task SetBuzzerOffAsync()
+        {
+            if (disposing)
+                throw new ObjectDisposedException(GetType().FullName);
+
+            await _dispatcher.InvokeAsync(() =>
+            {
+                ControlTransferInternal(225, 0, 1);
+            });
+        }
+
+        public void SetWhiteLedOn()
+        {
+            if (disposing)
+                throw new ObjectDisposedException(GetType().FullName);
+
+            _dispatcher.Invoke(() =>
+            {
+                ControlTransferInternal(225, 1, 3);
+            });
+        }
+
+        public async Task SetWhiteLedOnAsync()
+        {
+            if (disposing)
+                throw new ObjectDisposedException(GetType().FullName);
+
+            await _dispatcher.InvokeAsync(() =>
+            {
+                ControlTransferInternal(225, 1, 3);
+            });
+        }
+
+        public void SetWhiteLedOff()
+        {
+            if (disposing)
+                throw new ObjectDisposedException(GetType().FullName);
+
+            _dispatcher.Invoke(() =>
+            {
+                ControlTransferInternal(225, 0, 3);
+            });
+        }
+
+        public async Task SetWhiteLedOffAsync()
+        {
+            if (disposing)
+                throw new ObjectDisposedException(GetType().FullName);
+
+            await _dispatcher.InvokeAsync(() =>
+            {
+                ControlTransferInternal(225, 0, 3);
+            });
+        }
+
+        #endregion
+
+        #region Imaging
+
+        public byte[] GetRawImage(int usbTimeout = 1000)
+        {
+            if (disposing)
+                throw new ObjectDisposedException(GetType().FullName);
+
+            return _dispatcher.Invoke(() =>
+            {
+                // ignore the first image as the device always sends an old buffered image first
+                // this makes sure we always get a 'live' image using this method
+                GetRawImageInternal(usbTimeout);
+                return GetRawImageInternal(usbTimeout);
+            });
+        }
+
+        public async Task<byte[]> GetRawImageAsync(int usbTimeout = 1000)
+        {
+            if (disposing)
+                throw new ObjectDisposedException(GetType().FullName);
+
+            return await _dispatcher.InvokeAsync(() =>
+            {
+                // ignore the first image as the device always sends an old buffered image first
+                // this makes sure we always get a 'live' image using this method
+                GetRawImageInternal(usbTimeout);
+                return GetRawImageInternal(usbTimeout);
+            });
         }
 
         private byte[] GetRawImageInternal(int usbTimeout)
         {
-            var setupPkt = new UsbSetupPacket(0x40, 229, 0, 0, 0);
-            var retVal = _usbDevice.ControlTransfer(setupPkt, Array.Empty<byte>(), 0, 0);
-            if (retVal != 0)
-                throw new UsbException($"ControlTransfer returned non zero value {retVal}");
+            // request image
+            ControlTransferInternal(229, 0, 0);
 
+            // read image
             var epReader = _usbDevice.OpenEndpointReader(ReadEndpointID.Ep02, 0);
 
             var buffer = new byte[307200];
@@ -111,28 +320,27 @@ namespace H3x.Zkteco
             return buffer;
         }
 
-        public byte[] GetRawImage(int usbTimeout = 1000)
-        {
-            // ignore the first image as the device always sends an old buffered image first
-            // this makes sure we always get a 'live' image using this method
-            GetRawImageInternal(usbTimeout);
-            return GetRawImageInternal(usbTimeout);
-        }
+        #endregion
 
         #region IDisposable implementation
 
-        private bool disposedValue;
+        private bool disposing, disposeValue;
 
         protected virtual void Dispose(bool disposing)
         {
-            if (!disposedValue)
+            if (!disposeValue)
             {
                 if (disposing)
                 {
-                    _usbDevice.Dispose();
+                    this.disposing = true;
+                    _dispatcher.Invoke(() =>
+                    {
+                        _usbDevice.Dispose();
+                        _context.Dispose();
+                    });
                 }
 
-                disposedValue = true;
+                disposeValue = true;
             }
         }
 
