@@ -222,7 +222,7 @@ namespace H3x.Zkteco
 
             await _dispatcher.InvokeAsync(() =>
             {
-                ControlTransferInternal(225, 0, 1);
+                ControlTransferInternal(225, 0, 2);
             });
         }
 
