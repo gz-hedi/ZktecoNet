@@ -59,6 +59,8 @@ namespace H3x.Zkteco
                 var isZk4500 = d.VendorId == USB_VID && d.ProductId == USB_PID;
                 return isZk4500;
             });
+            if (usbDevice == null)
+                throw new UsbException("USB device not detected");
 
             // open
             usbDevice.Open();
