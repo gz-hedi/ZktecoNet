@@ -1,8 +1,6 @@
 ﻿using LibUsbDotNet.LibUsb;
 using LibUsbDotNet.Main;
 using System;
-using System.Dynamic;
-using System.Threading;
 using System.Threading.Tasks;
 using Ultz.Dispatcher;
 
