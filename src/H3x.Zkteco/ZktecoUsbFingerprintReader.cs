@@ -6,7 +6,7 @@ using Ultz.Dispatcher;
 
 namespace H3x.Zkteco
 {
-    public class Zk4500 : IDisposable
+    public class ZktecoUsbFingerprintReader : IDisposable
     {
         private const ushort USB_VID = 0x1B55;
 
@@ -18,7 +18,7 @@ namespace H3x.Zkteco
 
         private readonly UsbContext _context;
 
-        private Zk4500(Dispatcher dispatcher, UsbContext context, IUsbDevice usbDevice)
+        private ZktecoUsbFingerprintReader(Dispatcher dispatcher, UsbContext context, IUsbDevice usbDevice)
         {
             _usbDevice = usbDevice;
             _dispatcher = dispatcher;
@@ -27,7 +27,7 @@ namespace H3x.Zkteco
 
         #region Create device, lowlevel USB helper functions
 
-        public static Zk4500 CreateAndOpenDevice()
+        public static ZktecoUsbFingerprintReader CreateAndOpenDevice()
         {
             var dispatcher = new Dispatcher();
 
@@ -37,7 +37,7 @@ namespace H3x.Zkteco
             });
         }
 
-        public static async Task<Zk4500> CreateAndOpenDeviceAsync()
+        public static async Task<ZktecoUsbFingerprintReader> CreateAndOpenDeviceAsync()
         {
             var dispatcher = new Dispatcher();
 
@@ -47,7 +47,7 @@ namespace H3x.Zkteco
             });
         }
 
-        private static Zk4500 CreateAndOpenDeviceInternal(Dispatcher dispatcher)
+        private static ZktecoUsbFingerprintReader CreateAndOpenDeviceInternal(Dispatcher dispatcher)
         {
             // use the predicate based Find method, as using a UsbDeviceFinder does not work for me
             // tested on Windows 10 18363, using lib version 3.0.81-alpha
@@ -68,7 +68,10 @@ namespace H3x.Zkteco
             if (!usbDevice.ClaimInterface(0))
                 throw new UsbException("Could not claim USB interface 0");
 
-            return new Zk4500(dispatcher, usbContext, usbDevice);
+            var fpReader = new ZktecoUsbFingerprintReader(dispatcher, usbContext, usbDevice);
+            fpReader.GetSerialNumber();
+
+            return fpReader;
         }
 
         private void ControlTransferInternal(byte bRequest, int wValue, int wIndex)
