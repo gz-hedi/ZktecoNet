@@ -27,27 +27,27 @@ namespace H3x.Zkteco
 
         #region Create device, lowlevel USB helper functions
 
-        public static Zk4500 CreateAndOpenDevice(Func<string, bool> predicate = null)
+        public static Zk4500 CreateAndOpenDevice()
         {
             var dispatcher = new Dispatcher();
 
             return dispatcher.Invoke(() =>
             {
-                return CreateAndOpenDeviceInternal(dispatcher, predicate);
+                return CreateAndOpenDeviceInternal(dispatcher);
             });
         }
 
-        public static async Task<Zk4500> CreateAndOpenDeviceAsync(Func<string, bool> predicate = null)
+        public static async Task<Zk4500> CreateAndOpenDeviceAsync()
         {
             var dispatcher = new Dispatcher();
 
             return await dispatcher.InvokeAsync(() =>
             {
-                return CreateAndOpenDeviceInternal(dispatcher, predicate);
+                return CreateAndOpenDeviceInternal(dispatcher);
             });
         }
 
-        private static Zk4500 CreateAndOpenDeviceInternal(Dispatcher dispatcher, Func<string, bool> predicate = null)
+        private static Zk4500 CreateAndOpenDeviceInternal(Dispatcher dispatcher)
         {
             // use the predicate based Find method, as using a UsbDeviceFinder does not work for me
             // tested on Windows 10 18363, using lib version 3.0.81-alpha
@@ -55,12 +55,10 @@ namespace H3x.Zkteco
             var usbDevice = usbContext.Find(d =>
             {
                 var isZk4500 = d.VendorId == USB_VID && d.ProductId == USB_PID;
-                if (isZk4500 && predicate != null)
-                    return predicate(d.Info.SerialNumber);
                 return isZk4500;
             });
             if (usbDevice == null)
-                return null;
+                throw new UsbException("USB device not detected");
 
             // open
             usbDevice.Open();
@@ -81,22 +79,9 @@ namespace H3x.Zkteco
                 throw new UsbException($"ControlTransfer returned non zero value {retVal}");
         }
 
-        public string SerialNumber => _dispatcher.Invoke(() => _usbDevice.Info.SerialNumber);
-
         #endregion
 
         #region LEDs, buzzer
-
-        public void ResetDevice()
-        {
-            if (disposing)
-                throw new ObjectDisposedException(GetType().FullName);
-
-            _dispatcher.Invoke(() =>
-            {
-                _usbDevice.ResetDevice();
-            });
-        }
 
         public async Task ResetDeviceAsync()
         {
@@ -348,16 +333,14 @@ namespace H3x.Zkteco
                 if (disposing)
                 {
                     this.disposing = true;
-                    disposeValue = true;
-                    using (_dispatcher)
+                    _dispatcher.Invoke(() =>
                     {
-                        _dispatcher.Invoke(() =>
-                        {
-                            _usbDevice.Dispose();
-                            _context.Dispose();
-                        });
-                    }
+                        _usbDevice.Dispose();
+                        _context.Dispose();
+                    });
                 }
+
+                disposeValue = true;
             }
         }
 
