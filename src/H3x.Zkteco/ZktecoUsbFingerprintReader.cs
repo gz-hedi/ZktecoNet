@@ -69,7 +69,6 @@ namespace H3x.Zkteco
                 throw new UsbException("Could not claim USB interface 0");
 
             var fpReader = new ZktecoUsbFingerprintReader(dispatcher, usbContext, usbDevice);
-            fpReader.GetSerialNumber();
 
             return fpReader;
         }
