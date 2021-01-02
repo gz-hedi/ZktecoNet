@@ -1,6 +1,8 @@
 ﻿using LibUsbDotNet.LibUsb;
 using LibUsbDotNet.Main;
 using System;
+using System.Linq;
+using System.Reflection.Metadata.Ecma335;
 using System.Threading.Tasks;
 using Ultz.Dispatcher;
 
@@ -12,13 +14,15 @@ namespace H3x.Zkteco
 
         private const ushort USB_PID = 0x0840;
 
-        private readonly IUsbDevice _usbDevice;
+        private readonly UsbDevice _usbDevice;
 
         private readonly Dispatcher _dispatcher;
 
         private readonly UsbContext _context;
 
-        private ZktecoUsbFingerprintReader(Dispatcher dispatcher, UsbContext context, IUsbDevice usbDevice)
+        public string SerialNumber { get; set; }
+
+        private ZktecoUsbFingerprintReader(Dispatcher dispatcher, UsbContext context, UsbDevice usbDevice)
         {
             _usbDevice = usbDevice;
             _dispatcher = dispatcher;
@@ -27,40 +31,48 @@ namespace H3x.Zkteco
 
         #region Create device, lowlevel USB helper functions
 
-        public static ZktecoUsbFingerprintReader CreateAndOpenDevice()
+        public static ZktecoUsbFingerprintReader CreateAndOpenDevice(Func<UsbDevice, bool> predicate = null)
         {
             var dispatcher = new Dispatcher();
 
             return dispatcher.Invoke(() =>
             {
-                return CreateAndOpenDeviceInternal(dispatcher);
+                return CreateAndOpenDeviceInternal(dispatcher, predicate);
             });
         }
 
-        public static async Task<ZktecoUsbFingerprintReader> CreateAndOpenDeviceAsync()
+        public static async Task<ZktecoUsbFingerprintReader> CreateAndOpenDeviceAsync(Func<UsbDevice, bool> predicate = null)
         {
             var dispatcher = new Dispatcher();
 
             return await dispatcher.InvokeAsync(() =>
             {
-                return CreateAndOpenDeviceInternal(dispatcher);
+                return CreateAndOpenDeviceInternal(dispatcher, predicate);
             });
         }
 
-        private static ZktecoUsbFingerprintReader CreateAndOpenDeviceInternal(Dispatcher dispatcher)
+        private static ZktecoUsbFingerprintReader CreateAndOpenDeviceInternal(Dispatcher dispatcher, Func<UsbDevice, bool> predicate = null)
         {
             // use the predicate based Find method, as using a UsbDeviceFinder does not work for me
             // tested on Windows 10 18363, using lib version 3.0.81-alpha
-            var usbContext = new UsbContext();
-            var usbDevice = usbContext.Find(d =>
+            using var usbContext = new UsbContext();
+            var usbDevice = (UsbDevice)usbContext.Find(d =>
             {
+                if (d is not UsbDevice)
+                    return false; // not LibUSB
+
                 var isZk4500 = d.VendorId == USB_VID && d.ProductId == USB_PID;
-                return isZk4500;
+                if (!isZk4500 || !d.TryOpen())
+                    return false; // no ZK4500 or ZK4500 is already claimed (although claim does not seem to work, as I can keep opening the same device and claiming the same interface over and over)
+
+                var isCorrectDevice = predicate?.Invoke((UsbDevice)d) ?? true;
+
+                d.Close();
+                return isCorrectDevice;
             });
             if (usbDevice == null)
-                throw new UsbException("USB device not detected");
+                return null;
 
-            // open
             usbDevice.Open();
 
             // configure
@@ -69,6 +81,7 @@ namespace H3x.Zkteco
                 throw new UsbException("Could not claim USB interface 0");
 
             var fpReader = new ZktecoUsbFingerprintReader(dispatcher, usbContext, usbDevice);
+            fpReader.SerialNumber = fpReader.GetSerialNumber();
 
             return fpReader;
         }
@@ -81,9 +94,30 @@ namespace H3x.Zkteco
                 throw new UsbException($"ControlTransfer returned non zero value {retVal}");
         }
 
+        /// <summary>
+        /// FIXME: get real serial number
+        /// Currently generates artificial serial number based on bus and address number, just so you can distinguish different devices
+        /// </summary>
+        /// <returns></returns>
+        private string GetSerialNumber()
+        {
+            return $"0x{_usbDevice.BusNumber:X}-0x{_usbDevice.Address:X}";
+        }
+
         #endregion
 
         #region LEDs, buzzer
+
+        public void ResetDevice()
+        {
+            if (disposing)
+                throw new ObjectDisposedException(GetType().FullName);
+
+            _dispatcher.Invoke(() =>
+            {
+                _usbDevice.ResetDevice();
+            });
+        }
 
         public async Task ResetDeviceAsync()
         {

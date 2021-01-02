@@ -5,7 +5,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="LibUsbDotNet" Version="3.0.81-alpha" />
+    <PackageReference Include="LibUsbDotNet" Version="3.0.87-alpha" />
     <PackageReference Include="Nerdbank.GitVersioning" Version="3.3.37">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
